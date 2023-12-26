@@ -1,0 +1,4 @@
+res/**
+log/**
+**/__pycache__/**
+traingru.py

@@ -1,0 +1,19 @@
+lr: 0.1
+batch_size: 32
+epoches: 100
+patience: 5
+device: cuda
+optim: adam
+lr_decay: 0
+clip: True
+
+model: 'lstm2lstm'
+hidden_size: 128
+embed_size: 128
+num_layers: 2
+vocab_size: 1303   # 不加1会有索引溢出
+
+log_dir: log
+res_dir: res
+
+data_dir: data
