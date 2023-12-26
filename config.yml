@@ -1,11 +1,13 @@
-lr: 0.1
+lr: 0.001
 batch_size: 32
 epoches: 100
-patience: 5
+patience: 50
 device: cuda
 optim: adam
+weight_decay: 1e-4
 lr_decay: 0
 clip: True
+max_norm: 10
 
 model: 'lstm2lstm'
 hidden_size: 128

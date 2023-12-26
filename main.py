@@ -26,8 +26,16 @@ def run(args):
         from model.gruatt2 import Seq2Seq
         model = Seq2Seq(args)
     # print(torchinfo.summary(model, input_size=(1, 28, 28), batch_dim=0))
-    train(model, args)
-    test(model, args)
-
+    for i in range(9):
+        for lr in [0.1, 0.01, 0.001]:
+            for clip in [True, False]:
+                args['clip'] = clip
+                args['version'] = str(i)+str(lr)
+                args['lr'] = lr
+                train(model, args)
+                test(model, args)
+                args['max_norm'] -= 1
+            
+           
 if __name__ == '__main__':
     run(args)

@@ -31,6 +31,7 @@ def train(model, args):
     data_dir = args['data_dir']
     version = args['version']
     clip = args['clip']
+    max_norm = args['max_norm']
 
     model.to(device)
     train_dataset = dataset('train')
@@ -64,7 +65,7 @@ def train(model, args):
             train_loss += loss
             loss.backward()   # backward
             if clip:
-                torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=20, norm_type=2)
+                torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_norm, norm_type=2)
             optimizer.step()
             optimizer.zero_grad()
             # break
@@ -82,7 +83,7 @@ def train(model, args):
             _val_rouge1, _val_rougeL = get_rouge(val_pred, Y_val)  # 这个batch的均值
             val_rouge1 += _val_rouge1
             val_rougeL += _val_rougeL
-            break
+            # break
         val_blue /= len(valloader)
         val_rouge1 /= len(valloader)
         val_rougeL /= len(valloader)
@@ -106,7 +107,7 @@ def train(model, args):
             log.write(f'patience: {no_improve}/{patience}')
         if no_improve >= patience:
             log.write('early stopping\n')
-            # break
+            break
 
     time_consum = time.time() - start
     log.write('train time consumption: {:.2f}s\n'.format(time_consum))   
