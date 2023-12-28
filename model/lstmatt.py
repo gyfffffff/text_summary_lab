@@ -98,7 +98,7 @@ class Seq2Seq(nn.Module):
             # teacher forcing
             one_input_copy = one_input.clone()
             for k in range(one_input_copy.shape[0]):
-                if random.random() < 0.6:
+                if random.random() < 0.5:
                     one_input_copy[k] = one_output.argmax(-1)
             one_input = one_input_copy
             one_output, _ = self.decoder(one_input.unsqueeze(1), encoder_hidden, encoder_output)     
@@ -112,16 +112,11 @@ class Seq2Seq(nn.Module):
         encoder_out, encoder_hidden = self.encoder(x)
         decoder_input = torch.tensor([[self.BOS]]*batch_size, device=self.device)  # [batchsize, 1]
         decoder_output, decoder_hidden = self.decoder(decoder_input, encoder_hidden, encoder_out)  # [batchsize, 1, hidden_size]
-        # pre = self.classifier(decoder_output)
-        # pre = pre.argmax(dim=-1)
-        # for one_output in decoder_output:
+
         for i in range(100):
             pre = decoder_output
             pre = pre.argmax(dim=-1)  
             result.append(pre.unsqueeze(1))   # 加入数组，最后会用concat
-            # if pre.item() == self.PAD or pre.item() == self.EOS or len(result) > 100:
-            #     break
-            # result.append(pre.item())
             decoder_input = pre
         result = torch.cat(result, dim=1).detach().cpu().tolist()
         # 对结果整理，去掉pad和eos

@@ -13,7 +13,7 @@ class TokenEmbedding(nn.Module):
         self.embed_size = embed_size
 
     def forward(self, x):
-        return self.embedding(x.long()) * math.sqrt(self.embed_size)
+        return self.embedding(x.long()) * math.sqrt(self.embed_size)  # 乘以sqrt(d_model)是为了与Position Embedding相加后的数值大小相近
 
 
 class PositionEmbedding(nn.Module):

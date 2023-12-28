@@ -1,6 +1,6 @@
 import logging
-from utils.logger import Logger
-from utils.dataset import fituning_dataset
+from myutils.logger import Logger
+from myutils.dataset import fituning_dataset
 import os
 import torch
 from transformers import AutoTokenizer

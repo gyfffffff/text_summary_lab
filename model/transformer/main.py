@@ -1,206 +1,165 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
-from torchtext.data.utils import get_tokenizer
-from torchtext.vocab import build_vocab_from_iterator
-from torchtext.datasets import multi30k, Multi30k
-from typing import Iterable, List
 from transformer import Transformer
-import pickle
+import sys
+sys.path.append("F:\\Romio\\ECNU period\\课程\\当代人工智能\\text_summary_lab")
+from myutils.dataset import dataset
+import logging
+logging.basicConfig(level=logging.INFO, filename="log/transformer.txt", filemode="a+", format="%(asctime)s - %(levelname)s - %(message)s")
+
+from nltk.translate.bleu_score import sentence_bleu,SmoothingFunction
 import os
-os.chdir("model/transformer")
-
-# dcws = de_core_web_sm.load()
-
-"""
-Initializations and Definitions
-"""
-
-multi30k.URL["train"] = "https://raw.githubusercontent.com/neychev/small_DL_repo/master/datasets/Multi30k/training.tar.gz"
-multi30k.URL["valid"] = "https://raw.githubusercontent.com/neychev/small_DL_repo/master/datasets/Multi30k/validation.tar.gz"
-torch.manual_seed(0)
-
-SRC_LANGUAGE = "de"
-TGT_LANGUAGE = "en"
-UNK_IDX, PAD_IDX, BOS_IDX, EOS_IDX = 0, 1, 2, 3
-special_symbols = ['<unk>', '<pad>', '<bos>', '<eos>']
-
-token_transform = {}
-vocab_transform = {}
-text_transform = {}
+# os.chdir("model/transformer")
 
 
-def yield_tokens(data_iter: Iterable, language: str) -> List[str]:
-    language_index = {SRC_LANGUAGE: 0, TGT_LANGUAGE: 1}
-    for data_sample in data_iter:
-        yield token_transform[language](data_sample[language_index[language]])
+class TransformerTrain():
+    def __init__(self):
+        self.SRC_VOCAB_SIZE = 1303
+        self.TGT_VOCAB_SIZE = 1303
+        self.D_MODEL = 64
+        self.D_FNN = 64
+        self.NUM_HEADS = 2
+        self.NUM_ENCODER_LAYERS = 2
+        self.NUM_DECODER_LAYERS = 2
+        self.BATCH_SIZE = 16
+        self.DEVICE = "cpu"
+        self.PAD_IDX, self.BOS_IDX, self.EOS_IDX = 1301, 1300, 1302
+        model = Transformer(self.NUM_ENCODER_LAYERS,
+                        self.NUM_DECODER_LAYERS,
+                        self.NUM_HEADS,
+                        self.SRC_VOCAB_SIZE,
+                        self.TGT_VOCAB_SIZE,
+                        self.D_MODEL,
+                        self.D_FNN)
+
+        for p in model.parameters():
+            if p.dim() > 1:
+                torch.nn.init.xavier_uniform_(p)
+        self.model = model.to(self.DEVICE)
+        self.loss_fn = nn.CrossEntropyLoss(ignore_index=self.PAD_IDX)   # 该值在计算损失时将被忽略
+        self.optimizer = optim.Adam(model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+
+    """
+    计算给定批次的填充掩码
+    batch每个序列可能在末尾包含一些填充元素,
+    在等于pad的地方为false,不等于pad的地方为true
+    升维度
+    """
+    def calc_padding_mask(self, batch: torch.Tensor):
+        padding_mask = torch.unsqueeze(batch != self.PAD_IDX, dim=1)  # [batch_size, 1, seq_len+1]
+        return padding_mask
+    
+    def train_epoch(self, model, optimizer, output_per_batch=None):
+        model.to(self.DEVICE)
+        model.train()
+        train_dataset = dataset('train')
+        train_dataloader = DataLoader(train_dataset, batch_size=self.BATCH_SIZE, shuffle=True, collate_fn=train_dataset.batch_process)
+        total_loss = 0
+        total_batch = 0
+        for batch_id, (src, tgt) in enumerate(train_dataloader):
+            total_batch += 1
+            optimizer.zero_grad()
+            src = src.to(self.DEVICE)   # [batch_size, seq_len+1]  # +1是因为加了<BOS>
+            tgt = tgt.to(self.DEVICE)   # [batch_size, seq_len]
+            tgt_input = tgt[:, :-1]
+            tgt_output = tgt[:, 1:]
+            src_padding_mask = self.calc_padding_mask(src)
+            tgt_padding_mask = self.calc_padding_mask(tgt_input)
+            scores = model(src_padding_mask, tgt_padding_mask, src, tgt_input)  # [batch_size, seq_len, tgt_vocab_size]
+            num_candidates = scores.size()[-1]
+            loss = self.loss_fn(scores.reshape(-1, num_candidates),
+                        tgt_output.long().reshape(-1))
+            loss.backward()
+            optimizer.step()
+            total_loss = total_loss + loss.item()
+            if output_per_batch is not None and batch_id % output_per_batch == 0:
+                logging.info(f"Batch {batch_id}: loss = {loss.item()} avg_loss = {total_loss / (total_batch)}")
+            # break
+        return total_loss / total_batch
 
 
-def sequential_transforms(*transforms):
-    def func(text):
-        for transform in transforms:
-            text = transform(text)
-        return text
-    return func
+    def evaluate(self, model: Transformer):
+        model.eval()
+        val_dataset = dataset('val')
+        val_dataloader = DataLoader(val_dataset, batch_size=self.BATCH_SIZE, shuffle=True, collate_fn=val_dataset.batch_process)
+        total_loss = 0
+        total_batch = 0
+        for src, tgt in val_dataloader:
+            total_batch += 1
+            self.optimizer.zero_grad()
+            src = src.to(self.DEVICE)
+            tgt = tgt.to(self.DEVICE)
+            tgt_input = tgt[:, :-1]  # 删去最后一个词作为输入
+            tgt_output = tgt[:, 1:]  # 删去第一个词作为输出
+            src_padding_mask = self.calc_padding_mask(src)
+            tgt_padding_mask = self.calc_padding_mask(tgt_input)
+            scores = model(src_padding_mask, tgt_padding_mask, src, tgt_input)
+            num_candidates = scores.size()[-1]
+            loss = self.loss_fn(scores.reshape(-1, num_candidates),
+                        tgt_output.long().reshape(-1))
+            loss.backward()
+            self.optimizer.step()
+            total_loss = total_loss + loss.item()
+            # 计算bleu
+            pred = scores.argmax(dim=-1)
+            bleu = self.get_bleu(pred, tgt_output)
+            # break
+        return bleu
 
+    def train(self):
+        total_epoch = 10
+        best_val_bleu = -1
+        for epoch in range(total_epoch):
+            logging.info(f"Epoch {epoch + 1} / {total_epoch}:")
+            avg_loss = self.train_epoch(self.model, self.optimizer, 1)
+            self.optimizer.param_groups[0]["lr"] /= 10
+            logging.info(f"Epoch {epoch + 1} done, avg_loss = {avg_loss}")
+            val_bleu = self.evaluate(self.model)
+            logging.info(f"Epoch {epoch + 1} done, val_bleu = {val_bleu}")
+            if val_bleu > best_val_bleu:
+                best_val_bleu = val_bleu
+                torch.save(self.model.state_dict(), "res/transformer-best.pkl")
+                logging.info("model saved")
 
-def tensor_transform(token_ids: List):
-    return torch.cat([torch.Tensor([BOS_IDX]),
-                      torch.Tensor(token_ids),
-                      torch.Tensor([EOS_IDX])])
+    def get_bleu(self, pred, Y):
+        chencherry = SmoothingFunction()
+        bleu_score = 0
+        for pre, y in zip(pred, Y):
+            bleu_score += sentence_bleu([y[y!=self.PAD_IDX].squeeze().tolist()], pre.tolist(), smoothing_function=chencherry.method1)
+        return bleu_score/len(pred)
+    
+    def test(self):
+        logging.info("test start")
+        self.model.eval()
+        test_dataset = dataset('test')
+        test_dataloader = DataLoader(test_dataset, batch_size=self.BATCH_SIZE, shuffle=True, collate_fn=test_dataset.batch_process)
+        total_loss = 0
+        total_batch = 0
+        for src, tgt in test_dataloader:
+            total_batch += 1
+            self.optimizer.zero_grad()
+            src = src.to(self.DEVICE)
+            tgt = tgt.to(self.DEVICE)
+            tgt_input = tgt[:, :-1]  # 删去最后一个词作为输入
+            tgt_output = tgt[:, 1:]  # 删去第一个词作为输出
+            src_padding_mask = self.calc_padding_mask(src)
+            tgt_padding_mask = self.calc_padding_mask(tgt_input)
+            scores = self.model(src_padding_mask, tgt_padding_mask, src, tgt_input)
+            num_candidates = scores.size()[-1]
+            loss = self.loss_fn(scores.reshape(-1, num_candidates),
+                        tgt_output.long().reshape(-1))
+            loss.backward()
+            self.optimizer.step()
+            total_loss = total_loss + loss.item()
+            # 计算bleu
+            pred = scores.argmax(dim=-1)
+            bleu = self.get_bleu(pred, tgt_output)
+        logging.info(f"test done, bleu = {bleu}")
+        return bleu
 
-
-def collate_fn(batch):
-    src_batch, tgt_batch = [], []
-    for src_sample, tgt_sample in batch:
-        src_batch.append(text_transform[SRC_LANGUAGE](src_sample.rstrip('\n')))
-        tgt_batch.append(text_transform[TGT_LANGUAGE](tgt_sample.rstrip('\n')))
-    src_batch = pad_sequence(src_batch, padding_value=PAD_IDX)
-    tgt_batch = pad_sequence(tgt_batch, padding_value=PAD_IDX)
-    return src_batch, tgt_batch
-
-
-if not os.path.exists(r".\token_transforms.pkl"):
-    token_transform[SRC_LANGUAGE] = get_tokenizer("spacy",
-                                                  language="de_core_news_sm")
-    token_transform[TGT_LANGUAGE] = get_tokenizer("spacy",
-                                                  language="en_core_web_sm")
-    train_iter = Multi30k(split="train",
-                          language_pair=(SRC_LANGUAGE, TGT_LANGUAGE))
-    vocab_transform[SRC_LANGUAGE] = build_vocab_from_iterator(
-        yield_tokens(train_iter, SRC_LANGUAGE),
-        min_freq=1,
-        specials=special_symbols,
-        special_first=True
-    )
-    vocab_transform[TGT_LANGUAGE] = build_vocab_from_iterator(
-        yield_tokens(train_iter, TGT_LANGUAGE),
-        min_freq=1,
-        specials=special_symbols,
-        special_first=True
-    )
-    vocab_transform[SRC_LANGUAGE].set_default_index(UNK_IDX)
-    vocab_transform[TGT_LANGUAGE].set_default_index(UNK_IDX)
-    with open(r".\token_transforms.pkl", "wb") as f:
-        pickle.dump((token_transform, vocab_transform), f)
-else:
-    with open(r".\token_transforms.pkl", "rb") as f:
-        token_transform, vocab_transform = pickle.load(f)
-
-
-for ln in [SRC_LANGUAGE, TGT_LANGUAGE]:
-    # So that the words not contained in the dictionary will be indexed as UNK
-    text_transform[ln] = sequential_transforms(token_transform[ln],
-                                               vocab_transform[ln],
-                                               tensor_transform)
-
-
-def calc_padding_mask(batch: torch.Tensor):
-    padding_mask = torch.unsqueeze(batch != PAD_IDX, dim=1)
-    return padding_mask
-
-
-"""
-Hyper-parameters
-"""
-
-SRC_VOCAB_SIZE = len(vocab_transform[SRC_LANGUAGE])
-TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE])
-D_MODEL = 512
-D_FNN = 512
-NUM_HEADS = 8
-NUM_ENCODER_LAYERS = 3
-NUM_DECODER_LAYERS = 3
-BATCH_SIZE = 128
-DEVICE = "cuda"
-
-
-"""
-Training
-"""
-
-print("Begin training.")
-
-model = Transformer(NUM_ENCODER_LAYERS,
-                    NUM_DECODER_LAYERS,
-                    NUM_HEADS,
-                    SRC_VOCAB_SIZE,
-                    TGT_VOCAB_SIZE,
-                    D_MODEL,
-                    D_FNN)
-
-for p in model.parameters():
-    if p.dim() > 1:
-        torch.nn.init.xavier_uniform_(p)
-
-model = model.to(DEVICE)
-loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
-optimizer = optim.Adam(model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
-
-
-def train_epoch(model, optimizer, output_per_batch=None):
-    model.to(DEVICE)
-    model.train()
-    train_iter = Multi30k(split="train",
-                          language_pair=(SRC_LANGUAGE, TGT_LANGUAGE))
-    train_dataloader = DataLoader(train_iter, batch_size=BATCH_SIZE,
-                                  collate_fn=collate_fn)
-    total_loss = 0
-    total_batch = 0
-    for batch_id, (src, tgt) in enumerate(train_dataloader):
-        total_batch += 1
-        optimizer.zero_grad()
-        src = src.T.to(DEVICE)
-        tgt = tgt.T.to(DEVICE)
-        tgt_input = tgt[:, :-1]
-        tgt_output = tgt[:, 1:]
-        src_padding_mask = calc_padding_mask(src)
-        tgt_padding_mask = calc_padding_mask(tgt_input)
-        scores = model(src_padding_mask, tgt_padding_mask, src, tgt_input)
-        num_candidates = scores.size()[-1]
-        loss = loss_fn(scores.reshape(-1, num_candidates),
-                       tgt_output.long().reshape(-1))
-        loss.backward()
-        optimizer.step()
-        total_loss = total_loss + loss.item()
-        if output_per_batch is not None and batch_id % output_per_batch == 0:
-            print(f"Batch {batch_id}: loss = {loss.item()}"
-                  f" avg_loss = {total_loss / (total_batch)}")
-    return total_loss / total_batch
-
-
-def evaluate(model: Transformer):
-    model.eval()
-    val_iter = Multi30k(split="valid",
-                        language_pair=(SRC_LANGUAGE, TGT_LANGUAGE))
-    val_dataloader = DataLoader(val_iter, batch_size=BATCH_SIZE,
-                                collate_fn=collate_fn)
-    total_loss = 0
-    total_batch = 0
-    for src, tgt in val_dataloader:
-        total_batch += 1
-        optimizer.zero_grad()
-        src = src.T.to(DEVICE)
-        tgt = tgt.T.to(DEVICE)
-        tgt_input = tgt[:, :-1]  # 删去最后一个词作为输入
-        tgt_output = tgt[:, 1:]  # 删去第一个词作为输出
-        src_padding_mask = calc_padding_mask(src)
-        tgt_padding_mask = calc_padding_mask(tgt_input)
-        scores = model(src_padding_mask, tgt_padding_mask, src, tgt_input)
-        num_candidates = scores.size()[-1]
-        loss = loss_fn(scores.reshape(-1, num_candidates),
-                       tgt_output.long().reshape(-1))
-        loss.backward()
-        optimizer.step()
-        total_loss = total_loss + loss.item()
-    return total_loss / total_batch
-
-
-total_epoch = 10
-for epoch in range(total_epoch):
-    print(f"Epoch {epoch + 1} / {total_epoch}:")
-    avg_loss = train_epoch(model, optimizer, 1)
-    optimizer.param_groups[0]["lr"] /= 10
-    print(f"Epoch {epoch + 1} done, avg_loss = {avg_loss}")
+if __name__ == "__main__":
+    trainer = TransformerTrain()
+    trainer.train()
+    trainer.test()

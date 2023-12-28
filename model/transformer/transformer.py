@@ -97,12 +97,12 @@ class Transformer(nn.Module):
         :param tgt: 译文（经过tokenize）
         :return: 对于译文下一个词的预测scores
         """
-        src_embed = self.pos_embed(self.src_tok_embed(src))
+        src_embed = self.pos_embed(self.src_tok_embed(src))  # 普通Embedding [batch_size, seq_len, d_model]
         tgt_embed = self.pos_embed(self.tgt_tok_embed(tgt))
-        encoder_padding_mask = src_padding_mask.expand(-1, src.size()[1], -1)
-        encoder_out = self.encoder(encoder_padding_mask, src_embed)
-        decoder_mask = torch.tril(tgt_padding_mask.expand(-1, tgt.size()[1], -1))
+        encoder_padding_mask = src_padding_mask.expand(-1, src.size()[1], -1)  # 新的掩码张量， -1, src.size()[1], -1 表示在第一个和第三个维度上保持 src_padding_mask 的原来大小，而在第二个维度上扩展到 src 的大小。
+        encoder_out = self.encoder(encoder_padding_mask, src_embed)  # [batch_size, seq_len+3, d_model]
+        decoder_mask = torch.tril(tgt_padding_mask.expand(-1, tgt.size()[1], -1))   # 下三角矩阵，因为decoder只能看到当前和之前的词
         decoder_padding_mask = src_padding_mask.expand(-1, tgt.size()[1], -1)
-        decoder_out = self.decoder(decoder_padding_mask, decoder_mask,
+        decoder_out = self.decoder(decoder_padding_mask, decoder_mask,   # [batch_size, seq_len, d_model]
                                    tgt_embed, encoder_out)
         return self.linear(decoder_out)

@@ -1,9 +1,0 @@
-2023-12-27 13:50:10,179 Lock 1731975963272 acquired on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\5606f48548d99a9829d10a96cd364b816b02cd21.lock
-2023-12-27 13:50:14,114 Lock 1731975963272 released on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\5606f48548d99a9829d10a96cd364b816b02cd21.lock
-2023-12-27 13:50:14,458 Lock 1732005101192 acquired on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\226b0752cac7789c48f0cb3ec53eda48b7be36cc.lock
-2023-12-27 13:50:16,458 Lock 1732005101192 released on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\226b0752cac7789c48f0cb3ec53eda48b7be36cc.lock
-2023-12-27 13:50:17,799 Lock 1732015401544 acquired on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\2d297163111d6483909070dc6de8d34236c72636.lock
-2023-12-27 13:50:18,204 Lock 1732015401544 released on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\2d297163111d6483909070dc6de8d34236c72636.lock
-2023-12-27 13:50:19,140 Lock 1731953544392 acquired on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\2ac2745c02ac987d82c78a14b426de58d5e4178ae8039ba1c6881eccff3e82f1.lock
-2023-12-27 13:53:03,459 NumExpr defaulting to 8 threads.
-2023-12-27 13:53:04,263 Lock 1767716037448 acquired on C:\Users\charo/.cache\huggingface\hub\models--facebook--bart-large-cnn\blobs\2ac2745c02ac987d82c78a14b426de58d5e4178ae8039ba1c6881eccff3e82f1.lock

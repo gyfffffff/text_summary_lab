@@ -1,5 +1,5 @@
-from utils.logger import Logger
-from utils.dataset import dataset
+from myutils.logger import Logger
+from myutils.dataset import dataset
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -176,8 +176,8 @@ def plot(version, best_epoch):
 def get_BLUE(pred, Y):
     chencherry = SmoothingFunction()
     bleu_score = 0
-    for pre in pred:
-        bleu_score += sentence_bleu(Y.squeeze().tolist(), pre, smoothing_function=chencherry.method1)
+    for (pre, y) in zip(pred, Y):
+        bleu_score += sentence_bleu([y[y!=1301][1:-1].squeeze().tolist()], pre, smoothing_function=chencherry.method1)
     return bleu_score/len(pred)
 
 # def get_rouge(pred, Y):

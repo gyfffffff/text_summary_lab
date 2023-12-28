@@ -38,8 +38,7 @@ class MultiHeadAttention(nn.Module):
                  p_drop: float=0.1):
         """
         :param num_heads: 博客以及原文中的 h，堆叠的 SDA 的数量
-        :param d_model: 输入的特征向量长度，实际上由于 residual connection，这就是词\
-        嵌入的长度
+        :param d_model: 输入的特征向量长度，实际上由于 residual connection，这就是词嵌入的长度
         :param p_drop: Dropout参数
         """
         super(MultiHeadAttention, self).__init__()
