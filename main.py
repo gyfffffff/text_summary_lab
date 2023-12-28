@@ -2,6 +2,7 @@ import argparse
 import time
 import yaml
 from train_val_test import train, test
+from fituning import fituning, fituning_test
 import torchinfo
 
 with open('config.yml', 'r') as f:
@@ -22,24 +23,30 @@ def run(args):
     if modelname == 'lstm2lstm':
         from model.lstm2lstm import Seq2Seq
         model = Seq2Seq(args)
+        train(model, args)   # train 和 val 
+        test(model, args)
     elif modelname == 'gru2gru':
         from model.gruatt2 import Seq2Seq
         model = Seq2Seq(args)
+        train(model, args)
+        test(model, args)
     elif modelname == 'lstmatt':
         from model.lstmatt import Seq2Seq
         model = Seq2Seq(args)
-    # print(torchinfo.summary(model, input_size=(1, 28, 28), batch_dim=0))
-    # for i in range(4):
-    #     for lr in [0.1, 0.01, 0.001]:
-    #         for clip in [True, False]:
-    #             args['clip'] = clip
-    #             args['version'] = str(i)+str(lr)
-    #             args['lr'] = lr
-    #             train(model, args)
-    #             test(model, args)
-    #         args['max_norm'] -= 2   
-    train(model, args)
-    test(model, args) 
+        train(model, args)
+        test(model, args)
+    elif modelname == 't5-medical':
+        from model.t5_medical import get_model
+        model, tokenizer = get_model()
+        fituning(model, tokenizer, args)
+        fituning_test(model, tokenizer, args)
+    elif modelname == 't5-base':
+        from model.t5_base import get_model
+        model, tokenizer = get_model()
+        fituning(model, tokenizer, args)
+        fituning_test(model, args)
+
+ 
             
            
 if __name__ == '__main__':

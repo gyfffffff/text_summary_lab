@@ -1,21 +1,19 @@
-# %%
+# Import necessary libraries
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from nltk.translate.bleu_score import corpus_bleu
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, BartForConditionalGeneration
 import logging
-logging.basicConfig(format='%(asctime)s %(message)s',filename="t5-base.log",
-        filemode='a+',
-        level=logging.INFO)
+logging.basicConfig(format='%(asctime)s %(message)s', filename="t5-medical-3060.log",
+                    filemode='a+', level=logging.INFO)
 
-# %%
+# Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('device:', device)
 
-
-# %%
+# Define the dataset class
 class NewDataset(Dataset):
     def __init__(self, data, tokenizer, des_len, dia_len):
         self.tokenizer = tokenizer
@@ -30,9 +28,9 @@ class NewDataset(Dataset):
     def __getitem__(self, index):
         diagnosis = str(self.diagnosis[index])
         description = str(self.description[index])
-        source = self.tokenizer.batch_encode_plus(
-            [description], truncation=True, padding='max_length', max_length=self.des_len,  return_tensors='pt')
-        target = self.tokenizer.batch_encode_plus(
+        source = self.tokenizer(
+            [description], truncation=True, padding='max_length', max_length=self.des_len, return_tensors='pt')
+        target = self.tokenizer(
             [diagnosis], truncation=True, padding='max_length', max_length=self.dia_len, return_tensors='pt')
         source_ids = source['input_ids'].squeeze()
         source_mask = source['attention_mask'].squeeze()
@@ -45,7 +43,7 @@ class NewDataset(Dataset):
             'target_mask': target_mask.to(dtype=torch.long)
         }
 
-# %%
+# Define the training function
 def train(epoch, tokenizer, model, device, loader, optimizer):
     model.train()
     loss_sum = 0.0
@@ -57,24 +55,19 @@ def train(epoch, tokenizer, model, device, loader, optimizer):
         y = data['target_ids'].to(device, dtype=torch.long)
         y_ids = y[:, :-1].contiguous()
         truth_labels = y[:, 1:].clone().detach()
-        # 所有被设置为-100的label在计算loss时会被忽略
         truth_labels[y[:, 1:] == tokenizer.pad_token_id] = -100
         outputs = model(input_ids=ids, attention_mask=mask,
                         decoder_input_ids=y_ids, labels=truth_labels)
-        # 当设置了labels属性时，会计算交叉熵损失
-        loss = outputs[0]
-        loss_sum += loss
+        loss = outputs.loss
+        loss_sum += loss.item()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        # path = './t5_model.pth'
-        # state = {'model': model.state_dict(
-        # ), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-        # torch.save(state, path)
+        if i%400==0:
+            logging.info(f'===> batch {i}, loss: {loss.item()}')
     return loss_sum / i
 
-
-# %%
+# Define the validation function
 def validate(tokenizer, model, device, loader, is_test=False):
     model.eval()
     predictions = []
@@ -102,36 +95,35 @@ def validate(tokenizer, model, device, loader, is_test=False):
             predictions.extend(preds)
     return predictions, actuals
 
-
-
-# %%
-SEED = 1458
+# Set parameters
+SEED = 1717
 MAX_LEN = 500
 SUMMARY_MAX_LEN = 100
 
-
+# Main function
 def main():
     num_epochs = 155
-    lr = 2e-4
+    lr = 1e-3
     train_params = {
-        'batch_size': 8,
+        'batch_size':20,
         'shuffle': True
     }
 
     val_params = {
-        'batch_size': 8,
+        'batch_size': 20,
         'shuffle': False
     }
 
     test_params = {
-        'batch_size': 8,
+        'batch_size': 20,
         'shuffle': False
     }
-    # 随机数种子seed确定时，模型的训练结果将始终保持一致
+
     torch.manual_seed(SEED)
     np.random.seed(SEED)
     torch.backends.cudnn.deterministic = True
-    tokenizer = T5Tokenizer.from_pretrained("t5-base")
+
+    tokenizer = AutoTokenizer.from_pretrained("Falconsai/medical_summarization")
 
     df = pd.read_csv('../data/train.csv')
     df = df[['description', 'diagnosis']]
@@ -155,7 +147,7 @@ def main():
     val_loader = DataLoader(val_set, **val_params)
     test_loader = DataLoader(test_set, **test_params)
 
-    model = T5ForConditionalGeneration.from_pretrained("t5-base")
+    model = AutoModelForSeq2SeqLM.from_pretrained("Falconsai/medical_summarization")
     model = model.to(device)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
     
@@ -172,22 +164,13 @@ def main():
               (epoch, loss, bleu))
         logging.info(f"epoch {epoch}, train-loss {loss}, val-bleu {bleu}")
         if bleu > best_bleu:
-            torch.save(model.state_dict(), open('t5-base-best.pkl', 'wb'))
-    # path = './model.pth'
-    # checkpoint = torch.load(path)
-    # model.load_state_dict(checkpoint['model'])
-    # optimizer.load_state_dict(checkpoint['optimizer'])
-    # epoch = checkpoint(['epoch'])
+            torch.save(model.state_dict(), open('t5-medical-best.pkl', 'wb'))
     test_predictions, _ = validate(
         tokenizer, model, device, test_loader, True)
-    # print(predictions)
     final_df = pd.DataFrame(
         {'description': origin_test_df['description'], 'diagnosis': test_predictions})
     final_df = final_df.rename_axis('index')
-    final_df.to_csv('t5-base-predictions.csv')
-
+    final_df.to_csv('t5-medical-predictions.csv')
 
 if __name__ == '__main__':
     main()
-
-

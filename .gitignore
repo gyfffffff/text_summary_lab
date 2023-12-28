@@ -2,3 +2,5 @@ res/**
 log/**
 **/__pycache__/**
 traingru.py
+t5_base/
+t5_medical/

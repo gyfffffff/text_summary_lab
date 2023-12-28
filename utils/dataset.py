@@ -79,6 +79,53 @@ class dataset(Dataset):
         x = torch.tensor(x, dtype=torch.long)
         y = torch.tensor(y, dtype=torch.long)
         return x, y
+    
+class fituning_dataset(Dataset):
+    def __init__(self, phase, tokenizer):
+        self.tokenizer = tokenizer
+        self.description_len = 500
+        self.diagnosis_len = 100
+        if phase == 'train':
+            df = pd.read_csv('data/train.csv')[['description', 'diagnosis']]
+            df.description = 'summarize: ' + df.description
+            train_dataset = df.sample(frac=0.9, random_state=1717).reset_index(drop=True)
+            self.description = train_dataset.description
+            self.diagnosis = train_dataset.diagnosis
+        elif phase == 'val':
+            df = pd.read_csv('data/train.csv')[['description', 'diagnosis']]
+            df.description = 'summarize: ' + df.description
+            train_dataset = df.sample(frac=0.9, random_state=1717).reset_index(drop=True) 
+            val_dataset = df.drop(train_dataset.index).reset_index(drop=True)  
+            self.description = val_dataset.description
+            self.diagnosis = val_dataset.diagnosis         
+        elif phase == 'test':
+            test_df = pd.read_csv('data/test.csv')[['description', 'diagnosis']]
+            test_df.description = 'summarize: ' + test_df.description        
+            test_dataset = test_df.reset_index(drop=True)
+            self.description = test_dataset.description
+            self.diagnosis = test_dataset.diagnosis
+
+
+    def __len__(self):
+        return len(self.description)
+
+    def __getitem__(self, index):
+        diagnosis = str(self.diagnosis[index])
+        description = str(self.description[index])
+        source = self.tokenizer(
+            [description], truncation=True, padding='max_length', max_length=self.description_len, return_tensors='pt')
+        target = self.tokenizer(
+            [diagnosis], truncation=True, padding='max_length', max_length=self.diagnosis_len, return_tensors='pt')
+        source_ids = source['input_ids'].squeeze()
+        source_mask = source['attention_mask'].squeeze()
+        target_ids = target['input_ids'].squeeze()
+        target_mask = target['attention_mask'].squeeze()
+        return {
+            'source_ids': source_ids.to(dtype=torch.long),
+            'source_mask': source_mask.to(dtype=torch.long),
+            'target_ids': target_ids.to(dtype=torch.long),
+            'target_mask': target_mask.to(dtype=torch.long)
+        }
 
 if __name__ == '__main__':
     # save_data()
