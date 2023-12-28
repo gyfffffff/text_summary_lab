@@ -32,6 +32,7 @@ def train(model, args):
     version = args['version']
     clip = args['clip']
     max_norm = args['max_norm']
+    # weight_decay = args['weight_decay']
 
     model.to(device)
     train_dataset = dataset('train')
@@ -80,7 +81,8 @@ def train(model, args):
             X_val, Y_val = X_val.to(device), Y_val.to(device)
             val_pred = model.summary(X_val)
             val_blue += get_BLUE(val_pred, Y_val)  # 这个batch的均值
-            _val_rouge1, _val_rougeL = get_rouge(val_pred, Y_val)  # 这个batch的均值
+            _val_rouge1, _val_rougeL = 0, 0
+            # get_rouge(val_pred, Y_val)  # 这个batch的均值
             val_rouge1 += _val_rouge1
             val_rougeL += _val_rougeL
             # break
@@ -136,7 +138,8 @@ def test(model, args):
         X, Y = X.to(device), Y.to(device)
         pred = model.summary(X)
         test_blue += get_BLUE(pred, Y)
-        _test_rouge1, _test_rougeL = get_rouge(pred, Y)  # 这个batch的均值
+        _test_rouge1, _test_rougeL = 0, 0
+        # get_rouge(pred, Y)  # 这个batch的均值
         test_rouge1 += _test_rouge1
         test_rougeL += _test_rougeL
 
@@ -154,20 +157,20 @@ def plot(version, best_epoch):
     import matplotlib.pyplot as plt
     plt.figure(figsize=(4, 4))
     # plt.plot(data['train_loss_history'], label='train loss', linestyle='--', c='green')
-    plt.plot(data['val_rouge1_history'], label='val rouge1', c='red')
-    plt.plot(data['val_rougeL_history'], label='val rougeL', c='orange')
+    # plt.plot(data['val_rouge1_history'], label='val rouge1', c='red')
+    # plt.plot(data['val_rougeL_history'], label='val rougeL', c='orange')
     plt.plot(data['val_blue_history'], label='val blue', c='blue')
     plt.plot([best_epoch-1, best_epoch-1], [0, 1], linestyle='--', color='brown', label='best epoch')
     plt.tight_layout()
     plt.legend()
     plt.xlabel('epoches')
-    plt.savefig(f'res/{version}_history.png')
+    plt.savefig(f'res/{version}_blue_history.png')
 
     plt.figure(figsize=(4, 4))
     plt.plot(data['train_loss_history'], label='train loss', linestyle='--', c='green')
     plt.legend()
     plt.xlabel('epoches')
-    plt.savefig(f'res/{version}_history.png')
+    plt.savefig(f'res/{version}_loss_history.png')
 
 
 def get_BLUE(pred, Y):
@@ -177,15 +180,15 @@ def get_BLUE(pred, Y):
         bleu_score += sentence_bleu(Y.squeeze().tolist(), pre, smoothing_function=chencherry.method1)
     return bleu_score/len(pred)
 
-def get_rouge(pred, Y):
-    rouge = Rouge()
-    pred = [' '.join([str(p) for p in pred])]  # pred: [['14', '30', '66', '75', '80', '33', '19', '35', '12', ...]]
-    Y = [' '.join([str(y) for y in Y.squeeze().tolist()])]  # Y: [['1300', '822', '108', '28', '107', '104', '113', '110', '15', ...]]
-    try:
-        rouge_score = rouge.get_scores(pred, Y, avg=True)
-    except ValueError:
-        rouge_score = {'rouge-1': {'f': 0.0, 'p': 0.0, 'r': 0.0}}
-    return rouge_score["rouge-1"]["f"], rouge_score["rouge-l"]["f"]
+# def get_rouge(pred, Y):
+#     rouge = Rouge()
+#     pred = [' '.join([str(p) for p in pred])]  # pred: [['14', '30', '66', '75', '80', '33', '19', '35', '12', ...]]
+#     Y = [' '.join([str(y) for y in Y.squeeze().tolist()])]  # Y: [['1300', '822', '108', '28', '107', '104', '113', '110', '15', ...]]
+#     try:
+#         rouge_score = rouge.get_scores(pred, Y, avg=True)
+#     except ValueError:
+#         rouge_score = {'rouge-1': {'f': 0.0, 'p': 0.0, 'r': 0.0}}
+#     return rouge_score["rouge-1"]["f"], rouge_score["rouge-l"]["f"]
 
 def get_param_num(model):
     trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)

@@ -50,8 +50,8 @@ class dataset(Dataset):
             y_len.append(len(_y))
             x.append(_x)
             y.append(_y)
-        max_x_len = max(x_len)
-        max_y_len = max(y_len)
+        max_x_len = max(x_len) if max(x_len) < 200 else 200
+        max_y_len = max(y_len) if max(y_len) < 100 else 100
 
         # <BOS> 1292, <EOS> 1293, <PAD> 1294
         BOS = '1300'

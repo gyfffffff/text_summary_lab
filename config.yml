@@ -1,19 +1,19 @@
-lr: 0.001
-batch_size: 32
+lr: 0.01
+batch_size: 28
 epoches: 100
-patience: 50
+patience: 5
 device: cuda
 optim: adam
-weight_decay: 1e-4
+# weight_decay: 1e-4
 lr_decay: 0
 clip: True
 max_norm: 10
 
-model: 'lstm2lstm'
+model: "lstm2lstm"
 hidden_size: 128
-embed_size: 128
-num_layers: 2
-vocab_size: 1303   # 不加1会有索引溢出
+embed_size: 64
+num_layers: 1
+vocab_size: 1303 # 不加1会有索引溢出
 
 log_dir: log
 res_dir: res

@@ -17,24 +17,29 @@ args = parser.parse_args()
 args = vars(args)
 
 def run(args):
+    args['model'] = 'lstmatt'
     modelname = args['model'].lower()
-    # modelname = 'gru2gru'
     if modelname == 'lstm2lstm':
         from model.lstm2lstm import Seq2Seq
         model = Seq2Seq(args)
     elif modelname == 'gru2gru':
         from model.gruatt2 import Seq2Seq
         model = Seq2Seq(args)
+    elif modelname == 'lstmatt':
+        from model.lstmatt import Seq2Seq
+        model = Seq2Seq(args)
     # print(torchinfo.summary(model, input_size=(1, 28, 28), batch_dim=0))
-    for i in range(9):
-        for lr in [0.1, 0.01, 0.001]:
-            for clip in [True, False]:
-                args['clip'] = clip
-                args['version'] = str(i)+str(lr)
-                args['lr'] = lr
-                train(model, args)
-                test(model, args)
-                args['max_norm'] -= 1
+    # for i in range(4):
+    #     for lr in [0.1, 0.01, 0.001]:
+    #         for clip in [True, False]:
+    #             args['clip'] = clip
+    #             args['version'] = str(i)+str(lr)
+    #             args['lr'] = lr
+    #             train(model, args)
+    #             test(model, args)
+    #         args['max_norm'] -= 2   
+    train(model, args)
+    test(model, args) 
             
            
 if __name__ == '__main__':
