@@ -17,9 +17,6 @@ args = parser.parse_args()
 args = vars(args)
 
 def run(args):
-    # args['model'] = 'gruatt'
-    # args['num_layers'] = 2
-    # args['lr'] = 0.01
     modelname = args['model'].lower()
     if modelname == 'lstm2lstm':
         from model.lstm2lstm import Seq2Seq
@@ -43,14 +40,14 @@ def run(args):
         from model.t5_medical import get_model
         from fituning import fituning, fituning_test
         model, tokenizer = get_model()
-        fituning(model, tokenizer, args)
+        # fituning(model, tokenizer, args)
         fituning_test(model, tokenizer, args)
     elif modelname == 't5-base':
         from model.t5_base import get_model
         from fituning import fituning, fituning_test
         model, tokenizer = get_model()
-        fituning(model, tokenizer, args)
-        fituning_test(model, args)
+        # fituning(model, tokenizer, args)
+        fituning_test(model, tokenizer, args)
     elif modelname == 'transformer':
         from model.transformer.main import TransformerTrain
         trainer = TransformerTrain(args)

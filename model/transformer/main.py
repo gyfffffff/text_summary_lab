@@ -37,7 +37,8 @@ class TransformerTrain():
                 torch.nn.init.xavier_uniform_(p)
         self.model = model.to(self.DEVICE)
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=self.PAD_IDX)   # 该值在计算损失时将被忽略
-        self.optimizer = optim.Adam(model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+        self.lr = 5e-4
+        self.optimizer = optim.Adam(model.parameters(), lr=self.lr, betas=(0.9, 0.98), eps=1e-9)
 
     """
     计算给定批次的填充掩码
@@ -120,8 +121,11 @@ class TransformerTrain():
                 best_val_bleu = val_bleu
                 torch.save(self.model.state_dict(), "res/transformer-best.pkl")
                 logging.info("model saved")
+            if epoch % 3 == 0:
+                self.lr -= 2e-4
+                self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.98), eps=1e-9)
             # break
-
+            
     def get_bleu(self, pred, Y):
         chencherry = SmoothingFunction()
         bleu_score = 0
@@ -131,7 +135,7 @@ class TransformerTrain():
     
     def test(self):
         logging.info("test start")
-        self.model.eval()
+        self.model.load_state_dict(torch.load("res/transformer-best.pkl"))
         test_dataset = dataset('test')
         test_dataloader = DataLoader(test_dataset, batch_size=self.BATCH_SIZE, shuffle=True, collate_fn=test_dataset.batch_process)
         total_loss = 0

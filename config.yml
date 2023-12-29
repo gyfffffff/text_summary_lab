@@ -14,6 +14,7 @@ hidden_size: 128
 embed_size: 64
 num_layers: 1
 vocab_size: 1303 # 不加1会有索引溢出
+teachforce_ratio: 0.5
 
 log_dir: log
 res_dir: res

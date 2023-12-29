@@ -98,7 +98,7 @@ class Seq2Seq(nn.Module):
             # teacher forcing
             one_input_copy = one_input.clone()
             for k in range(one_input_copy.shape[0]):
-                if random.random() < 0.5:
+                if random.random() < 0.9:
                     one_input_copy[k] = one_output.argmax(-1)
             one_input = one_input_copy
             one_output, _ = self.decoder(one_input.unsqueeze(1), encoder_hidden, encoder_output)     

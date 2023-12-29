@@ -39,6 +39,7 @@ class ScaledDotProductAttention(nn.Module):
         q = x_query @ self.wq
         v = x_key_value @ self.wv
         mat = torch.einsum("nik, njk -> nij", q, k) / self.div
+        # print(mat.dtype, mask.dtype, type(NEG_INF))
         mat = torch.where(mask, mat, NEG_INF)  # 这里 true 是通过，false 的地方设为 -inf 则在 softmax 后为 0
         portion = self.softmax(mat)
         return torch.einsum("nij, njk -> nik", portion, v)  # 计算注意力权重和 V的点积，得到加权和

@@ -31,6 +31,7 @@ def train(model, args):
     version = args['version']
     clip = args['clip']
     max_norm = args['max_norm']
+    modelname = args['model']
     # weight_decay = args['weight_decay']
 
     model.to(device)
@@ -68,7 +69,7 @@ def train(model, args):
                 torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_norm, norm_type=2)
             optimizer.step()
             optimizer.zero_grad()
-            break
+            # break
             if i%200 == 0:
                 log.write('====> epoch: {}/{} batch: {} loss: {}'.format(epoch, epoches, i, loss.item()))
         train_loss /= len(trainloader)
@@ -84,7 +85,7 @@ def train(model, args):
             # get_rouge(val_pred, Y_val)  # 这个batch的均值
             val_rouge1 += _val_rouge1
             val_rougeL += _val_rougeL
-            break
+            # break
         val_blue /= len(valloader)
         val_rouge1 /= len(valloader)
         val_rougeL /= len(valloader)
@@ -116,8 +117,8 @@ def train(model, args):
                     'val_rouge1_history': val_rouge1_history,
                     'val_rougeL_history': val_rougeL_history,
                     'val_blue_history': val_blue_history},
-                    open(os.path.join(res_dir,f'{version}_history.pkl'), 'wb'))
-    plot(version, best_epoch)
+                    open(os.path.join(res_dir,f'{modelname}_{version}_history.pkl'), 'wb'))
+    plot(version, best_epoch, args[model])
     log.write('history plot saved at res/{}_history.png'.format(args['model']+version))
 
 def test(model, args):
@@ -149,8 +150,8 @@ def test(model, args):
     test_rougeL /= len(testloader)
     log.write('test blue: {}  test rouge-1: {} test rouge-L: {}'.format(test_blue, test_rouge1, test_rougeL))
 
-def plot(version, best_epoch):
-    data = pickle.load(open(f'res/{version}_history.pkl', 'rb'))
+def plot(version, best_epoch, modelname):
+    data = pickle.load(open(f'res/{modelname}_{version}_history.pkl', 'rb'))
 
     # 绘制历史曲线
     import matplotlib.pyplot as plt
@@ -169,7 +170,7 @@ def plot(version, best_epoch):
     plt.plot(data['train_loss_history'], label='train loss', linestyle='--', c='green')
     plt.legend()
     plt.xlabel('epoches')
-    plt.savefig(f'res/{version}_loss_history.png')
+    plt.savefig(f'res/{modelname}_{version}_loss_history.png')
 
 
 def get_BLUE(pred, Y):

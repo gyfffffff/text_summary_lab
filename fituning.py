@@ -5,7 +5,7 @@ import os
 import torch
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
-from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 def fituning(model, tokenizer, args):
     log = Logger(args)
@@ -15,7 +15,7 @@ def fituning(model, tokenizer, args):
     optim = args['optim']
     batch_size = args['batch_size']
     device = args['device']
-    log_dir = args['log_dir']
+    version = args['version']
     res_dir = args['res_dir']
 
     
@@ -49,8 +49,9 @@ def fituning(model, tokenizer, args):
             optimizer.zero_grad()
             if i%400==0:
                 logging.info(f'===> batch {i}, loss: {loss.item()}')
+            # break
         train_loss /= len(trainloader)
-        train_loss_history.append(train_loss.item())
+        train_loss_history.append(train_loss)
 
         model.eval()
         Ys, predictions = [],[]
@@ -74,12 +75,14 @@ def fituning(model, tokenizer, args):
             preds = [tokenizer.decode(
                 g, skip_special_tokens=True, clean_up_tokenization_spaces=True) for g in generated_ids]
             predictions.extend(preds)
-
+            # break
         bleu = get_bleu(Ys, predictions)
         log.write('Epoch: {}, Train_loss: {}, Valid bleu: {}'.format(epoch, train_loss, bleu))
         if bleu > best_bleu:
-            torch.save(model.state_dict(), open(os.path.join(res_dir, 't5-medical-best.pkl'), 'wb'))
+            torch.save(model.state_dict(), open(os.path.join(res_dir, f'{version}_best_model.pth'), 'wb'))
             best_bleu = bleu
+        
+        # break 
 
 def fituning_test(model, tokenizer, args):
     log = Logger(args)
@@ -119,8 +122,13 @@ def fituning_test(model, tokenizer, args):
 
 
 
-def get_bleu(Ys, predictions):
-    Ys = [[x.split(' ')] for x in Ys]
-    predictions = [y.split(' ') for y in predictions]
-    bleu = sentence_bleu(Ys, predictions, weights=(0.25, 0.25, 0.25, 0.25))
-    return bleu
+def get_bleu(Y, pred):
+    Y = [x.split(' ') for x in Y]
+    pred = [y.split(' ') for y in pred]
+    # bleu = sentence_bleu(Ys, predictions, weights=(0.25, 0.25, 0.25, 0.25))
+    # return bleu
+    chencherry = SmoothingFunction()
+    bleu_score = 0
+    for (pre, y) in zip(pred, Y):
+        bleu_score += sentence_bleu([y], pre, smoothing_function=chencherry.method1)
+    return bleu_score/len(pred)
