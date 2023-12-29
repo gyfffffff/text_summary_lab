@@ -4,7 +4,7 @@ sublayers.py 实现了 FFN 和 MDA。
 """
 import torch
 import torch.nn as nn
-from attention import ScaledDotProductAttention
+from model.transformer.attention import ScaledDotProductAttention
 
 
 class PositionWiseFeedForward(nn.Module):

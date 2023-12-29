@@ -1,5 +1,5 @@
-from layers import *
-from embed import *
+from model.transformer.layers import *
+from model.transformer.embed import *
 import torch
 
 class Encoder(nn.Module):

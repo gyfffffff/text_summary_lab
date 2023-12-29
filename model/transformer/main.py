@@ -2,30 +2,28 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from transformer import Transformer
-import sys
-sys.path.append("F:\\Romio\\ECNU period\\课程\\当代人工智能\\text_summary_lab")
+from model.transformer.transformer import Transformer
 from myutils.dataset import dataset
 import logging
-logging.basicConfig(level=logging.INFO, filename="log/transformer.txt", filemode="a+", format="%(asctime)s - %(levelname)s - %(message)s")
 
 from nltk.translate.bleu_score import sentence_bleu,SmoothingFunction
-import os
-# os.chdir("model/transformer")
 
 
 class TransformerTrain():
-    def __init__(self):
-        self.SRC_VOCAB_SIZE = 1303
-        self.TGT_VOCAB_SIZE = 1303
+    def __init__(self, args):
+        self.SRC_VOCAB_SIZE = args["vocab_size"]
+        self.TGT_VOCAB_SIZE = args["vocab_size"]
         self.D_MODEL = 64
         self.D_FNN = 64
         self.NUM_HEADS = 2
         self.NUM_ENCODER_LAYERS = 2
         self.NUM_DECODER_LAYERS = 2
-        self.BATCH_SIZE = 16
-        self.DEVICE = "cpu"
+        self.BATCH_SIZE = args["batch_size"]
+        self.DEVICE = args["device"]
         self.PAD_IDX, self.BOS_IDX, self.EOS_IDX = 1301, 1300, 1302
+        self.version = args["version"]
+        logging.basicConfig(level=logging.INFO, filename=f"log/transformer_{self.version}.txt", filemode="a+", format="%(asctime)s - %(levelname)s - %(message)s")
+
         model = Transformer(self.NUM_ENCODER_LAYERS,
                         self.NUM_DECODER_LAYERS,
                         self.NUM_HEADS,
@@ -109,11 +107,11 @@ class TransformerTrain():
         return bleu
 
     def train(self):
-        total_epoch = 10
+        total_epoch = 100
         best_val_bleu = -1
         for epoch in range(total_epoch):
             logging.info(f"Epoch {epoch + 1} / {total_epoch}:")
-            avg_loss = self.train_epoch(self.model, self.optimizer, 1)
+            avg_loss = self.train_epoch(self.model, self.optimizer, 200)
             self.optimizer.param_groups[0]["lr"] /= 10
             logging.info(f"Epoch {epoch + 1} done, avg_loss = {avg_loss}")
             val_bleu = self.evaluate(self.model)
@@ -122,6 +120,7 @@ class TransformerTrain():
                 best_val_bleu = val_bleu
                 torch.save(self.model.state_dict(), "res/transformer-best.pkl")
                 logging.info("model saved")
+            # break
 
     def get_bleu(self, pred, Y):
         chencherry = SmoothingFunction()

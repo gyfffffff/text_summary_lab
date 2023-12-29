@@ -1,4 +1,4 @@
-from sublayers import *
+from model.transformer.sublayers import *
 import torch.nn as nn
 import torch
 

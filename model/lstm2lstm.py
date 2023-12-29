@@ -4,10 +4,10 @@ from torch import nn
 
 
 class Encoder(nn.Module):
-    def __init__(self, encoder_embedding_num, encoder_hidden_num, vocab_size, num_layers):
+    def __init__(self, encoder_embedding_num, encoder_hidden_num, vocab_size, num_layers=1):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, encoder_embedding_num)  
-        self.lstm = nn.LSTM(encoder_embedding_num, encoder_hidden_num, batch_first=True, num_layers=1, bidirectional=True)
+        self.lstm = nn.LSTM(encoder_embedding_num, encoder_hidden_num, batch_first=True, bidirectional=True)
 
     def forward(self, x):
         x_emb = self.embedding(x)
@@ -37,7 +37,7 @@ class Seq2Seq(nn.Module):
         num_layers = args['num_layers']
         self.device = args['device']
 
-        self.encoder = Encoder(encoder_emb_num, encoder_hidden_num, vocab_size, num_layers)
+        self.encoder = Encoder(encoder_emb_num, encoder_hidden_num, vocab_size)
         self.decoder = Decoder(decoder_emb_num, decoder_hidden_num, vocab_size, num_layers)
         self.classifier = nn.Linear(decoder_hidden_num, vocab_size)
         self.cross_loss = nn.CrossEntropyLoss()

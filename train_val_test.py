@@ -8,7 +8,6 @@ import os
 import time
 from nltk.translate.bleu_score import sentence_bleu,SmoothingFunction
 
-from rouge_chinese import Rouge
 
 
 
@@ -69,7 +68,7 @@ def train(model, args):
                 torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_norm, norm_type=2)
             optimizer.step()
             optimizer.zero_grad()
-            # break
+            break
             if i%200 == 0:
                 log.write('====> epoch: {}/{} batch: {} loss: {}'.format(epoch, epoches, i, loss.item()))
         train_loss /= len(trainloader)
@@ -85,7 +84,7 @@ def train(model, args):
             # get_rouge(val_pred, Y_val)  # 这个batch的均值
             val_rouge1 += _val_rouge1
             val_rougeL += _val_rougeL
-            # break
+            break
         val_blue /= len(valloader)
         val_rouge1 /= len(valloader)
         val_rougeL /= len(valloader)
@@ -119,7 +118,7 @@ def train(model, args):
                     'val_blue_history': val_blue_history},
                     open(os.path.join(res_dir,f'{version}_history.pkl'), 'wb'))
     plot(version, best_epoch)
-    log.write('history plot saved at res/{}_history.png'.format(version))
+    log.write('history plot saved at res/{}_history.png'.format(args['model']+version))
 
 def test(model, args):
     log = Logger(args)
